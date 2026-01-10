@@ -326,6 +326,9 @@ pub struct OutputInfo {
     recipient: Address,
     value: NoteValue,
     memo: [u8; 512],
+    /// Optional pre-computed detection tag.
+    /// If None, a random tag will be generated (appropriate for dummy actions).
+    tag: Option<[u8; 16]>,
 }
 
 impl OutputInfo {
@@ -341,6 +344,28 @@ impl OutputInfo {
             recipient,
             value,
             memo,
+            tag: None,
+        }
+    }
+
+    /// Constructs a new OutputInfo with a detection tag.
+    ///
+    /// The tag should be generated using a [`TaggingKey`] for PIR-based scanning.
+    ///
+    /// [`TaggingKey`]: crate::tag::TaggingKey
+    pub fn with_tag(
+        ovk: Option<OutgoingViewingKey>,
+        recipient: Address,
+        value: NoteValue,
+        memo: [u8; 512],
+        tag: [u8; 16],
+    ) -> Self {
+        Self {
+            ovk,
+            recipient,
+            value,
+            memo,
+            tag: Some(tag),
         }
     }
 
@@ -351,7 +376,13 @@ impl OutputInfo {
         let fvk: FullViewingKey = (&SpendingKey::random(rng)).into();
         let recipient = fvk.address_at(0u32, Scope::External);
 
-        Self::new(None, recipient, NoteValue::zero(), [0u8; 512])
+        Self {
+            ovk: None,
+            recipient,
+            value: NoteValue::zero(),
+            memo: [0u8; 512],
+            tag: None, // Will be randomized during build
+        }
     }
 
     /// Builds the output half of an action.
@@ -411,14 +442,19 @@ struct ActionInfo {
     spend: SpendInfo,
     output: OutputInfo,
     rcv: ValueCommitTrapdoor,
+    /// Whether this action is a dummy (both spend and output are dummy).
+    is_dummy: bool,
 }
 
 impl ActionInfo {
     fn new(spend: SpendInfo, output: OutputInfo, rng: impl RngCore) -> Self {
+        // An action is dummy if the spend is dummy (has a dummy_sk)
+        let is_dummy = spend.dummy_sk.is_some();
         ActionInfo {
             spend,
             output,
             rcv: ValueCommitTrapdoor::random(rng),
+            is_dummy,
         }
     }
 
@@ -440,9 +476,15 @@ impl ActionInfo {
         let (nf_old, ak, alpha, rk) = self.spend.build(&mut rng);
         let (note, cmx, encrypted_note) = self.output.build(&cv_net, nf_old, &mut rng);
 
-        // TODO: Generate proper detection tag in Phase 1.4
-        // For dummy actions, this should be random; for real actions, derived from tag key
-        let tag = [0u8; 16];
+        // Generate detection tag:
+        // - Use pre-computed tag if provided (for real outputs with tagging keys)
+        // - Use random tag for dummy actions (indistinguishable from real)
+        // - Use zeros if no tag provided for non-dummy (legacy compatibility)
+        let tag = match self.output.tag {
+            Some(t) => t,
+            None if self.is_dummy => crate::tag::random_tag(&mut rng),
+            None => [0u8; 16],
+        };
 
         (
             Action::from_parts(

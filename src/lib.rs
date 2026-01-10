@@ -38,6 +38,7 @@ pub mod note_encryption;
 pub mod pczt;
 pub mod primitives;
 mod spec;
+pub mod tag;
 pub mod tree;
 pub mod value;
 pub mod zip32;

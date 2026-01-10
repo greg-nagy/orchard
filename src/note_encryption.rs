@@ -497,6 +497,7 @@ mod tests {
                 },
                 cv_net.clone(),
                 (),
+                [0u8; 16], // Detection tag (not used in this test)
             );
 
             //

@@ -440,6 +440,10 @@ impl ActionInfo {
         let (nf_old, ak, alpha, rk) = self.spend.build(&mut rng);
         let (note, cmx, encrypted_note) = self.output.build(&cv_net, nf_old, &mut rng);
 
+        // TODO: Generate proper detection tag in Phase 1.4
+        // For dummy actions, this should be random; for real actions, derived from tag key
+        let tag = [0u8; 16];
+
         (
             Action::from_parts(
                 nf_old,
@@ -451,6 +455,7 @@ impl ActionInfo {
                     dummy_ask: self.spend.dummy_sk.as_ref().map(SpendAuthorizingKey::from),
                     parts: SigningParts { ak, alpha },
                 },
+                tag,
             ),
             Circuit::from_action_context_unchecked(self.spend, note, alpha, self.rcv),
         )

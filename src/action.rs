@@ -24,6 +24,11 @@ pub struct Action<A> {
     cv_net: ValueCommitment,
     /// The authorization for this action.
     authorization: A,
+    /// Detection tag for PIR-based transaction scanning.
+    ///
+    /// This 16-byte unencrypted tag enables wallets to filter relevant transactions
+    /// without trial decryption, reducing bandwidth and battery usage on mobile devices.
+    tag: [u8; 16],
 }
 
 impl<T> Action<T> {
@@ -35,6 +40,7 @@ impl<T> Action<T> {
         encrypted_note: TransmittedNoteCiphertext,
         cv_net: ValueCommitment,
         authorization: T,
+        tag: [u8; 16],
     ) -> Self {
         Action {
             nf,
@@ -43,6 +49,7 @@ impl<T> Action<T> {
             encrypted_note,
             cv_net,
             authorization,
+            tag,
         }
     }
 
@@ -81,6 +88,13 @@ impl<T> Action<T> {
         &self.authorization
     }
 
+    /// Returns the detection tag for this action.
+    ///
+    /// This 16-byte tag enables PIR-based transaction scanning without trial decryption.
+    pub fn tag(&self) -> &[u8; 16] {
+        &self.tag
+    }
+
     /// Transitions this action from one authorization state to another.
     pub fn map<U>(self, step: impl FnOnce(T) -> U) -> Action<U> {
         Action {
@@ -90,6 +104,7 @@ impl<T> Action<T> {
             encrypted_note: self.encrypted_note,
             cv_net: self.cv_net,
             authorization: step(self.authorization),
+            tag: self.tag,
         }
     }
 
@@ -102,6 +117,7 @@ impl<T> Action<T> {
             encrypted_note: self.encrypted_note,
             cv_net: self.cv_net,
             authorization: step(self.authorization)?,
+            tag: self.tag,
         })
     }
 }
@@ -147,6 +163,7 @@ pub(crate) mod testing {
             nf in arb_nullifier(),
             rk in arb_spendauth_verification_key(),
             note in arb_note(output_value),
+            tag in prop::array::uniform16(prop::num::u8::ANY),
         ) -> Action<()> {
             let cmx = ExtractedNoteCommitment::from(note.commitment());
             let cv_net = ValueCommitment::derive(
@@ -165,7 +182,8 @@ pub(crate) mod testing {
                 cmx,
                 encrypted_note,
                 cv_net,
-                authorization: ()
+                authorization: (),
+                tag,
             }
         }
     }
@@ -178,6 +196,7 @@ pub(crate) mod testing {
             note in arb_note(output_value),
             rng_seed in prop::array::uniform32(prop::num::u8::ANY),
             fake_sighash in prop::array::uniform32(prop::num::u8::ANY),
+            tag in prop::array::uniform16(prop::num::u8::ANY),
         ) -> Action<redpallas::Signature<SpendAuth>> {
             let cmx = ExtractedNoteCommitment::from(note.commitment());
             let cv_net = ValueCommitment::derive(
@@ -201,6 +220,7 @@ pub(crate) mod testing {
                 encrypted_note,
                 cv_net,
                 authorization: sk.sign(rng, &fake_sighash),
+                tag,
             }
         }
     }

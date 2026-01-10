@@ -70,6 +70,9 @@ impl super::Bundle {
             .map(|action| {
                 let authorization = action_auth(action)?;
 
+                // TODO: Extract tag from PCZT when tag field is added to pczt::Action
+                let tag = [0u8; 16];
+
                 Ok(crate::Action::from_parts(
                     action.spend.nullifier,
                     action.spend.rk.clone(),
@@ -77,6 +80,7 @@ impl super::Bundle {
                     action.output.encrypted_note.clone(),
                     action.cv_net.clone(),
                     authorization,
+                    tag,
                 ))
             })
             .collect::<Result<_, E>>()?;

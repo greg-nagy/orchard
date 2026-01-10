@@ -295,6 +295,8 @@ pub struct CompactAction {
     cmx: ExtractedNoteCommitment,
     ephemeral_key: EphemeralKeyBytes,
     enc_ciphertext: [u8; 52],
+    /// Detection tag for PIR-based scanning (optional for backwards compatibility).
+    tag: Option<[u8; 16]>,
 }
 
 impl fmt::Debug for CompactAction {
@@ -312,6 +314,7 @@ impl<T> From<&Action<T>> for CompactAction {
             enc_ciphertext: action.encrypted_note().enc_ciphertext[..52]
                 .try_into()
                 .unwrap(),
+            tag: Some(*action.tag()),
         }
     }
 }
@@ -331,7 +334,7 @@ impl ShieldedOutput<OrchardDomain, COMPACT_NOTE_SIZE> for CompactAction {
 }
 
 impl CompactAction {
-    /// Create a CompactAction from its constituent parts
+    /// Create a CompactAction from its constituent parts (without tag, for backwards compatibility).
     pub fn from_parts(
         nullifier: Nullifier,
         cmx: ExtractedNoteCommitment,
@@ -343,6 +346,24 @@ impl CompactAction {
             cmx,
             ephemeral_key,
             enc_ciphertext,
+            tag: None,
+        }
+    }
+
+    /// Create a CompactAction from its constituent parts, including detection tag.
+    pub fn from_parts_with_tag(
+        nullifier: Nullifier,
+        cmx: ExtractedNoteCommitment,
+        ephemeral_key: EphemeralKeyBytes,
+        enc_ciphertext: [u8; 52],
+        tag: [u8; 16],
+    ) -> Self {
+        Self {
+            nullifier,
+            cmx,
+            ephemeral_key,
+            enc_ciphertext,
+            tag: Some(tag),
         }
     }
 
@@ -354,6 +375,14 @@ impl CompactAction {
     /// Returns the commitment to the new note being created.
     pub fn cmx(&self) -> ExtractedNoteCommitment {
         self.cmx
+    }
+
+    /// Returns the detection tag, if present.
+    ///
+    /// The tag can be used for PIR-based scanning to filter relevant actions
+    /// without trial decryption.
+    pub fn tag(&self) -> Option<&[u8; 16]> {
+        self.tag.as_ref()
     }
 
     /// Obtains the [`Rho`] value that was used to construct the new note being created.

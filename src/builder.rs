@@ -650,6 +650,32 @@ impl Builder {
         Ok(())
     }
 
+    /// Adds an address which will receive funds in this transaction, with a detection tag.
+    ///
+    /// The tag should be generated using a [`TaggingKey`] for PIR-based scanning.
+    /// This enables recipients to efficiently detect relevant transactions without
+    /// trial decryption.
+    ///
+    /// [`TaggingKey`]: crate::tag::TaggingKey
+    pub fn add_output_with_tag(
+        &mut self,
+        ovk: Option<OutgoingViewingKey>,
+        recipient: Address,
+        value: NoteValue,
+        memo: [u8; 512],
+        tag: [u8; 16],
+    ) -> Result<(), OutputError> {
+        let flags = self.bundle_type.flags();
+        if !flags.outputs_enabled() {
+            return Err(OutputError);
+        }
+
+        self.outputs
+            .push(OutputInfo::with_tag(ovk, recipient, value, memo, tag));
+
+        Ok(())
+    }
+
     /// Returns the action spend components that will be produced by the
     /// transaction being constructed
     pub fn spends(&self) -> &Vec<impl InputView<()>> {

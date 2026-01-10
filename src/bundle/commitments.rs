@@ -47,8 +47,8 @@ pub(crate) fn hash_bundle_txid_data<A: Authorization, V: Copy + Into<i64>>(
         nh.update(&<[u8; 32]>::from(action.rk()));
         nh.update(&action.encrypted_note().enc_ciphertext[564..]);
         nh.update(&action.encrypted_note().out_ciphertext);
-        // Detection tag is included in non-compact hash
-        nh.update(action.tag());
+        // Note: Detection tag is NOT included in NU5 transaction ID hash per ZIP-244.
+        // Future network upgrades (NU7+) may include it in a modified hash scheme.
     }
 
     h.update(ch.finalize().as_bytes());

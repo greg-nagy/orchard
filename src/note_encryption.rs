@@ -439,6 +439,7 @@ pub mod testing {
                 cmx,
                 ephemeral_key,
                 enc_ciphertext: enc_ciphertext.as_ref()[..52].try_into().unwrap(),
+                tag: None, // No tag in test vectors
             },
             note,
         )
